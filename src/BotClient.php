@@ -16,6 +16,11 @@ class BotClient {
     private $rData;
     private $url_webhook;
     private $propagationStopped = false;
+    private array $config = [
+        'timeout' => 30,
+        'max_retries' => 3,
+        'parse_mode' => 'Markdown',
+    ];
 
     // پیام خام دریافتی از روبیکا
     public $message;
@@ -164,42 +169,55 @@ class BotClient {
         $offset_id = null;
 
         while (true) {
-            $data_send = ['limit' => 100];
-            if ($offset_id) {
-                $data_send['offset_id'] = $offset_id;
-            }
-
-            $response = json_decode($this->bot("getUpdates", $data_send));
-
-            if (empty($response->data->updates)) {
-                sleep(2);
-                continue;
-            }
-
-            foreach ($response->data->updates as $update) {
-                
-                $time = null;
-                if (isset($update->new_message->time)) {
-                    $time = $update->new_message->time;
-                } elseif (isset($update->updated_message->time)) {
-                    $time = $update->updated_message->time;
+            try {
+                $data_send = ['limit' => 100];
+                if ($offset_id) {
+                    $data_send['offset_id'] = $offset_id;
                 }
 
-                if ($this->has_time_passed($time, 5)) {
+                $response = json_decode($this->bot("getUpdates", $data_send));
+
+                if (empty($response->data->updates)) {
+                    sleep(2);
                     continue;
                 }
 
-                $this->rData = (object)['update' => $update];
-                $this->get_rData($this->rData);
-                $this->run();
-                sleep(0.5);
-            }
+                foreach ($response->data->updates as $update) {
+                    $time = null;
+                    if (isset($update->new_message->time)) {
+                        $time = $update->new_message->time;
+                    } elseif (isset($update->updated_message->time)) {
+                        $time = $update->updated_message->time;
+                    }
 
-            // به‌روزرسانی offset برای دور بعدی
-            if (isset($response->data->next_offset_id)) {
-                $offset_id = $response->data->next_offset_id;
+                    if ($this->has_time_passed($time, 5)) {
+                        continue;
+                    }
+
+                    $this->rData = (object)['update' => $update];
+                    $this->get_rData($this->rData);
+                    $this->run();
+                    usleep(500000);
+                }
+
+                if (isset($response->data->next_offset_id)) {
+                    $offset_id = $response->data->next_offset_id;
+                }
+
+            } catch (\Exception $e) {
+                echo "خطا در polling: " . $e->getMessage() . PHP_EOL;
+                sleep(5); // مکث قبل از تلاش مجدد
             }
         }
+    }
+
+    public function get_Me() {
+        $url = "https://botapi.rubika.ir/v3/" . $this->token . "/" . "getMe";
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+        return curl_exec($ch);
     }
 
     /**
@@ -233,14 +251,28 @@ class BotClient {
      * @param string $chat_id شناسه چت مقصد
      * @param string $question متن سوال
      * @param array[string] گزینه های سوال
+     * @param string ["Regular", "Quiz"] = "Regular" نوع
+     * @param string allows_multiple_answers .کاربرد دارد "regular" فقط برای نوع
+     * @param string is_anonymous باشد، رأی‌دهی ناشناس است و نام رأی‌دهندگان نمایش داده نمی‌شود true اگر 
+     * @param string correct_option_index "Quiz" گزینه درست در حالت 
+     * @param string hint توضیح نظرسنجی
      */
-    public function send_Poll($chat_id, string $question, array $options, $reply_to_message = null){
+    public function send_Poll($chat_id, string $question, array $options, $type = "Regular", $allows_multiple_answers = null, $is_anonymous = true, $correct_option_index = null, $hint = null, $inline_keypad = null, $chat_keypad = null, $chat_keypad_type = "New", $reply_to_message = null){
         $data_send = [
             "chat_id" => $chat_id,
             "question" => $question,
             "options" => $options,
-            // "reply_to_message_id" => $reply_to_message_id
+            "type" => $type,
+            "allows_multiple_answers" => $allows_multiple_answers,
+            "is_anonymous" => $is_anonymous,
+            "correct_option_index" => $correct_option_index,
+            "explanation" => $hint,
         ];
+        if ($inline_keypad !== null){$data_send["inline_keypad"] = $inline_keypad;}
+        else if($chat_keypad !== null){
+            $data_send["chat_keypad"] = $chat_keypad;
+            $data_send["chat_keypad_type"] = $chat_keypad_type;
+        }
         if ($reply_to_message !== null){$data_send["reply_to_message_id"] = $reply_to_message;}
         return $this->bot("sendPoll", $data_send);
     }
@@ -358,7 +390,7 @@ class BotClient {
      *
      * این متد کامندهای بات را تنظیم می‌کند.
      *
-     * @param array $bot_commands [["command" => "text_command1", "description" => "text_description1"], [], ...] $bot_commands لیست کامندها و دیسکریپشن ها
+     * @param array $bot_commands = [["command" => "text_command1", "description" => "text_description1"], [], ...] $bot_commands لیست کامندها و دیسکریپشن ها
      */
     public function set_Commands($bot_commands) {
         return $this->bot("setCommands", ["bot_commands" => $bot_commands]);
@@ -376,6 +408,10 @@ class BotClient {
         return $this->bot("getFile", ["file_id" => $file_id]);
     }
 
+    public function download_File($file_id) {
+        return $this->bot("getFile", ["file_id" => $file_id]);
+    }
+
     public function send_File_by_id($chat_id, $file_id, $caption = null, $inline_keypad = null, $chat_keypad = null, $chat_keypad_type = "New", $reply_to_message = null) {
         $data_send = [
             "chat_id" => $chat_id,
@@ -390,30 +426,6 @@ class BotClient {
         if ($caption !== null){$data_send["text"] = $caption;}
         return $this->bot("sendFile", $data_send);
     }
-
-    ///
-    // public function send_Voice(string $chat_id, ?string $file_id = null, ?string $file_path = null, ?string $caption = null, ?array $inline_keypad = null, ?array $chat_keypad = null, string $chat_keypad_type = 'New', ?string $reply_to_message = null,) {
-    //     if ($file_path) {
-    //         $upload_url = $this->requestSendFile("Voice");
-    //         $file_id = $this->uploadFileToRubika($upload_url, $file_path);
-    //     }
-
-    //     $data_send = [
-    //         "chat_id" => $chat_id,
-    //         "file_id" => $file_id,
-    //     ];
-
-    //     if ($reply_to_message !== null) {$data_send["reply_to_message_id"] = $reply_to_message;}
-    //     if ($inline_keypad !== null) {
-    //         $data_send["inline_keypad"] = $inline_keypad;
-    //     } elseif ($chat_keypad !== null) {
-    //         $data_send["chat_keypad"] = $chat_keypad;
-    //         $data_send["chat_keypad_type"] = $chat_keypad_type;
-    //     }
-    //     if ($caption !== null){$data_send["text"] = $caption;}
-
-    //     return $this->bot("sendFile", $data_send);
-    // }
 
     /**
      * ارسال فایل
@@ -447,30 +459,122 @@ class BotClient {
         return ['data' => $response, 'file_id' => $file_id];
     }
 
-    // public function send_Gif(string $chat_id, ?string $file_path = null, ?string $file_id = null, ?string $file_type = null, ?string $caption = null, ?array $inline_keypad = null, ?array $chat_keypad = null, string $chat_keypad_type = 'New', ?string $reply_to_message = null): array {
-    //     if (!isset($file_id)) {
-    //         $mime_type = mime_content_type($file_path);
-    //         $file_type = $this->detectFileType($mime_type);
-    //         if ($file_type === "Gif" || $file_type === "Video") {$file_type = "Gif";}
-    //         $upload_url = $this->requestSendFile($file_type);
-    //         $file_id = $this->uploadFileToRubika($upload_url, $file_path);
-    //     }
+    public function send_Image(string $chat_id, ?string $file_path = null, ?string $file_id = null, ?string $caption = null, ?array $inline_keypad = null, ?array $chat_keypad = null, string $chat_keypad_type = 'New', ?string $reply_to_message = null,) {
+        if ($file_path) {
+            $upload_url = $this->requestSendFile("Image");
+            $file_id = $this->uploadFileToRubika($upload_url, $file_path);
+        }
+
+        $data_send = [
+            "chat_id" => $chat_id,
+            "file_id" => $file_id,
+        ];
+
+        if ($reply_to_message !== null) {$data_send["reply_to_message_id"] = $reply_to_message;}
+        if ($inline_keypad !== null) {
+            $data_send["inline_keypad"] = $inline_keypad;
+        } elseif ($chat_keypad !== null) {
+            $data_send["chat_keypad"] = $chat_keypad;
+            $data_send["chat_keypad_type"] = $chat_keypad_type;
+        }
+        if ($caption !== null){$data_send["text"] = $caption;}
+
+        return $this->bot("sendFile", $data_send);
+    }
+    
+    public function send_Voice(string $chat_id, ?string $file_path = null, ?string $file_id = null, ?string $caption = null, ?array $inline_keypad = null, ?array $chat_keypad = null, string $chat_keypad_type = 'New', ?string $reply_to_message = null,) {
+        if ($file_path) {
+            $upload_url = $this->requestSendFile("Voice");
+            $file_id = $this->uploadFileToRubika($upload_url, $file_path);
+        }
+
+        $data_send = [
+            "chat_id" => $chat_id,
+            "file_id" => $file_id,
+        ];
+
+        if ($reply_to_message !== null) {$data_send["reply_to_message_id"] = $reply_to_message;}
+        if ($inline_keypad !== null) {
+            $data_send["inline_keypad"] = $inline_keypad;
+        } elseif ($chat_keypad !== null) {
+            $data_send["chat_keypad"] = $chat_keypad;
+            $data_send["chat_keypad_type"] = $chat_keypad_type;
+        }
+        if ($caption !== null){$data_send["text"] = $caption;}
+
+        return $this->bot("sendFile", $data_send);
+    }
+
+    public function send_Music(string $chat_id, ?string $file_path = null, ?string $file_id = null, ?string $caption = null, ?array $inline_keypad = null, ?array $chat_keypad = null, string $chat_keypad_type = 'New', ?string $reply_to_message = null,) {
+        if ($file_path) {
+            $upload_url = $this->requestSendFile("Music");
+            $file_id = $this->uploadFileToRubika($upload_url, $file_path);
+        }
+
+        $data_send = [
+            "chat_id" => $chat_id,
+            "file_id" => $file_id,
+        ];
+
+        if ($reply_to_message !== null) {$data_send["reply_to_message_id"] = $reply_to_message;}
+        if ($inline_keypad !== null) {
+            $data_send["inline_keypad"] = $inline_keypad;
+        } elseif ($chat_keypad !== null) {
+            $data_send["chat_keypad"] = $chat_keypad;
+            $data_send["chat_keypad_type"] = $chat_keypad_type;
+        }
+        if ($caption !== null){$data_send["text"] = $caption;}
+
+        return $this->bot("sendFile", $data_send);
+    }
+
+    public function send_Gif(string $chat_id, ?string $file_path = null, ?string $file_id = null, ?string $caption = null, ?array $inline_keypad = null, ?array $chat_keypad = null, string $chat_keypad_type = 'New', ?string $reply_to_message = null): array {
+        if (!isset($file_id)) {
+            $mime_type = mime_content_type($file_path);
+            $file_type = $this->detectFileType($mime_type);
+            if ($file_type === "Gif" || $file_type === "Video") {$file_type = "Gif";}
+            $upload_url = $this->requestSendFile($file_type);
+            $file_id = $this->uploadFileToRubika($upload_url, $file_path);
+        }
         
-    //     $data_send = [
-    //         'chat_id' => $this->chat_id,
-    //         'file_id' => $file_id,
-    //         'type' => $file_type,
-    //     ];
-    //     if ($reply_to_message !== null){$data_send["reply_to_message_id"] = $reply_to_message;}
-    //     if ($inline_keypad !== null){$data_send["inline_keypad"] = $inline_keypad;}
-    //     else if($chat_keypad !== null){
-    //         $data_send["chat_keypad"] = $chat_keypad;
-    //         $data_send["chat_keypad_type"] = $chat_keypad_type;
-    //     }
-    //     if ($caption !== null){$data_send["text"] = $caption;}
-    //     $response = $this->bot('sendFile', $data_send);
-    //     return ['data' => $response, 'file_id' => $file_id];
-    // }
+        $data_send = [
+            'chat_id' => $chat_id,
+            'file_id' => $file_id,
+            'type' => $file_type,
+        ];
+        if ($reply_to_message !== null){$data_send["reply_to_message_id"] = $reply_to_message;}
+        if ($inline_keypad !== null){$data_send["inline_keypad"] = $inline_keypad;}
+        else if($chat_keypad !== null){
+            $data_send["chat_keypad"] = $chat_keypad;
+            $data_send["chat_keypad_type"] = $chat_keypad_type;
+        }
+        if ($caption !== null){$data_send["text"] = $caption;}
+        $response = $this->bot('sendFile', $data_send);
+        return ['data' => $response, 'file_id' => $file_id];
+    }
+
+    public function send_Video(string $chat_id, ?string $file_path = null, ?string $file_id = null, ?string $caption = null, ?array $inline_keypad = null, ?array $chat_keypad = null, string $chat_keypad_type = 'New', ?string $reply_to_message = null,) {
+        if ($file_path) {
+            $upload_url = $this->requestSendFile("Video");
+            $file_id = $this->uploadFileToRubika($upload_url, $file_path);
+        }
+
+        $data_send = [
+            "chat_id" => $chat_id,
+            "file_id" => $file_id,
+        ];
+
+        if ($reply_to_message !== null) {$data_send["reply_to_message_id"] = $reply_to_message;}
+        if ($inline_keypad !== null) {
+            $data_send["inline_keypad"] = $inline_keypad;
+        } elseif ($chat_keypad !== null) {
+            $data_send["chat_keypad"] = $chat_keypad;
+            $data_send["chat_keypad_type"] = $chat_keypad_type;
+        }
+        if ($caption !== null){$data_send["text"] = $caption;}
+
+        return $this->bot("sendFile", $data_send);
+    }
 
     // مرحله اول: دریافت آدرس آپلود فایل
     function requestSendFile($type) {
@@ -528,14 +632,47 @@ class BotClient {
     }
 
     // ارسال درخواست به API روبیکا
-    private function bot($method, $data = []) {
+    private function bot(string $method, array $data = []): string
+    {
         $url = "https://botapi.rubika.ir/v3/" . $this->token . "/" . $method;
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
-        return curl_exec($ch);
-    }
-}
+        $retry = 0;
 
+        while ($retry < $this->config['max_retries']) {
+            $ch = curl_init($url);
+
+            try {
+                curl_setopt_array($ch, [
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_POST => true,
+                    CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+                    CURLOPT_POSTFIELDS => json_encode($data),
+                    CURLOPT_TIMEOUT => $this->config['timeout'],
+                ]);
+
+                $response = curl_exec($ch);
+                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+                if ($response === false) {
+                    throw new \Exception("cURL error: " . curl_error($ch));
+                }
+
+                if ($httpCode >= 200 && $httpCode < 300) {
+                    return $response;
+                }
+
+                throw new \Exception("API Error: HTTP {$httpCode} - " . ($response ?: 'No response'));
+            } catch (\Exception $e) {
+                $retry++;
+                if ($retry === $this->config['max_retries']) {
+                    throw $e;
+                }
+                usleep(500000); // 0.5 ثانیه مکث بین تلاش‌ها
+            } finally {
+                curl_close($ch);
+            }
+        }
+
+        return json_encode(['ok' => false, 'error' => 'Request failed']);
+    }
+
+}
