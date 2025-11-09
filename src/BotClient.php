@@ -107,7 +107,7 @@ class BotClient {
             "GetSelectionItem",
             "SearchSelectionItems"
         ];
-        
+
         foreach ($endpoints as $endpoint) {
             $data = [
                 "url" => $url_webhook,
@@ -115,19 +115,26 @@ class BotClient {
             ];
 
             try {
-                $response = json_decode($this->bot("updateBotEndpoints", $data));
+                $raw = $this->bot("updateBotEndpoints", $data);
+                $response = json_decode($raw);
+
                 echo $endpoint . ":\n";
-                if ($response->status === "ok") {
-                    echo "   ✅ done - status: " . $response->data->status . "\n";
+
+                if (isset($response->status) && $response->status === "OK") {
+                    $statusText = isset($response->data->status) ? $response->data->status : "unknown";
+                    echo "   ✅ done - status: " . $statusText . "\n";
                 } else {
-                        echo "eror - status: " . $response . "\n";
+                    echo "   ❌ error - response: " . json_encode($response) . "\n";
                 }
+
             } catch (\Exception $e) {
                 echo $endpoint . ":\n";
-                echo "   ❌ eror Network: " . $e->getMessage() . PHP_EOL . "\n";
+                echo "   ❌ error Network: " . $e->getMessage() . PHP_EOL . "\n";
             }
+
             usleep(500000);
         }
+
         echo "the end!";
     }
 
