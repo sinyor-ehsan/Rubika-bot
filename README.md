@@ -118,6 +118,13 @@ $message->reply_Message("send chat keypad!", chat_keypad:$chat_keypad);
 $bot->stopPropagation()
 ```
 
+# فیلتر text
+```php
+$bot->onMessage(Filters::text("hello"), function(BotClient $bot, Message $message){
+    $message->reply_Message("hello from Botkaplus!");
+});
+```
+
 # فیلتر ترکیبی and
 ```php
 $bot->onMessage(Filters::and(Filters::private(), Filters::command("start")), function(BotClient $bot, Message $message){
