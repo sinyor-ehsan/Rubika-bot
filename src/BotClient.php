@@ -6,6 +6,7 @@ require_once 'Message/Message.php';
 require_once 'Filters/Filters.php';
 require_once 'Keypad/KeypadChat.php';
 require_once 'Keypad/KeypadInline.php';
+require_once 'Metadata/Metadata.php';
 
 use Botkaplus\Message;
 use Exception;
@@ -16,11 +17,9 @@ class BotClient {
     private $rData;
     private $url_webhook;
     private $propagationStopped = false;
-    private array $config = [
-        'timeout' => 30,
-        'max_retries' => 3,
-        'parse_mode' => 'Markdown',
-    ];
+    private $timeout;
+    private $max_retries;
+    private $parse_mode;
 
     // پیام خام دریافتی از روبیکا
     public $message;
@@ -52,9 +51,12 @@ class BotClient {
     private $handlers = [];
 
     // سازنده کلاس
-    public function __construct($token, $rData = null, $url_webhook = null) {
+    public function __construct($token, $rData = null, $timeout = 30, $max_retries = 3, $parse_mode = "MARKDOWN", $url_webhook = null) {
         $this->token = $token;
         $this->rData = $rData;
+        $this->timeout = $timeout;
+        $this->max_retries = $max_retries;
+        $this->parse_mode = $parse_mode;
         $this->url_webhook = $url_webhook;
         if ($url_webhook !== null) {$this->setWebhook($url_webhook);}
         if ($rData !== null) {$this->get_rData($rData);}
@@ -245,6 +247,19 @@ class BotClient {
         return curl_exec($ch);
     }
 
+    function parseTextMetadata($text, $parseMode) {
+        $formatter = new TrackParsed();
+        $parsed = $formatter->parse($text, $parseMode);
+
+        $resultText = isset($parsed['text']) ? $parsed['text'] : null;
+        $resultMetadata = isset($parsed['metadata']) ? $parsed['metadata'] : null;
+
+        echo json_encode($resultMetadata);
+
+        return [$resultText, $resultMetadata];
+    }
+
+
     /**
      * ارسال پیام به چت
      *
@@ -256,17 +271,26 @@ class BotClient {
      * @param string|null $reply_to_message_id شناسه پیام برای پاسخ (اختیاری)
      * @return stdClass شیء پاسخ از سرور. موفقیت یا شکست ارسال پیام
      */
-    public function sendMessage($chat_id, $text, $inline_keypad = null, $chat_keypad = null, $chat_keypad_type = "New", $reply_to_message = null) {
+    public function sendMessage($chat_id, $text, $parse_mode = null, $inline_keypad = null, $chat_keypad = null, $chat_keypad_type = "New", $reply_to_message = null) {
+        if ($parse_mode === null){$parse_mode = $this->parse_mode;}
         $data_send = [
             "chat_id" => $chat_id,
             "text" => $text,
             "reply_to_message_id" => $reply_to_message
         ];
+        if (!empty($text)) {
+            list($text, $metadata) = $this->parseTextMetadata($text, $parse_mode);
+            $data_send["text"] = $text;
+            if (!empty($metadata)) {
+                $data_send["metadata"] = $metadata;
+            }
+        }
         if ($inline_keypad !== null){$data_send["inline_keypad"] = $inline_keypad;}
         else if($chat_keypad !== null){
             $data_send["chat_keypad"] = $chat_keypad;
             $data_send["chat_keypad_type"] = $chat_keypad_type;
         }
+        
         return json_decode($this->bot("sendMessage", $data_send));
     }
 
@@ -662,7 +686,7 @@ class BotClient {
         $url = "https://botapi.rubika.ir/v3/" . $this->token . "/" . $method;
         $retry = 0;
 
-        while ($retry < $this->config['max_retries']) {
+        while ($retry < $this->max_retries) {
             $ch = curl_init($url);
 
             try {
@@ -671,7 +695,7 @@ class BotClient {
                     CURLOPT_POST => true,
                     CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
                     CURLOPT_POSTFIELDS => json_encode($data),
-                    CURLOPT_TIMEOUT => $this->config['timeout'],
+                    CURLOPT_TIMEOUT => $this->timeout,
                 ]);
 
                 $response = curl_exec($ch);
@@ -688,7 +712,7 @@ class BotClient {
                 throw new \Exception("API Error: HTTP {$httpCode} - " . ($response ?: 'No response'));
             } catch (\Exception $e) {
                 $retry++;
-                if ($retry === $this->config['max_retries']) {
+                if ($retry === $this->max_retries) {
                     throw $e;
                 }
                 usleep(500000); // 0.5 ثانیه مکث بین تلاش‌ها
@@ -701,6 +725,5 @@ class BotClient {
     }
 
 }
-
 
 
