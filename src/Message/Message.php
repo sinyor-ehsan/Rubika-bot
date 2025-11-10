@@ -70,8 +70,8 @@ class Message {
      * @param string $text متن پیام
      * @return stdClass شیء پاسخ از سرور. موفقیت یا شکست ارسال پیام
      */
-    public function replyMessage($text, $inline_keypad = null, $chat_keypad = null, $chat_keypad_type = "New") {
-        return $this->bot->sendMessage($this->chat_id, $text, $inline_keypad, $chat_keypad, $chat_keypad_type, $this->message_id);
+    public function replyMessage($text, $parse_mode = null, $inline_keypad = null, $chat_keypad = null, $chat_keypad_type = "New") {
+        return $this->bot->sendMessage($this->chat_id, $text, $parse_mode, $inline_keypad, $chat_keypad, $chat_keypad_type, $this->message_id);
     }
 
     public function replyPoll(string $question, array $options, $type = "Regular", $allows_multiple_answers = null, $is_anonymous = true, $correct_option_index = null, $hint = null, $inline_keypad = null, $chat_keypad = null, $chat_keypad_type = "New") {
@@ -164,3 +164,4 @@ class Message {
     // }
 }
 ?>
+
