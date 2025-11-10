@@ -73,6 +73,79 @@ $bot->run();
 ?>
 ```
 
+# ارسال متادیتا markdown
+```php
+<?php
+
+require "vendor/autoload.php";
+use Botkaplus\BotClient;
+use Botkaplus\Filters;
+use Botkaplus\Message;
+
+echo "start\n";
+
+$token = "CCFJC0ZELVIZTHHGRFVTQAKUYEECATXQKIXCESDLNMGZGEGXTARQSYATQEESMCBS";
+$inData = file_get_contents('php://input');
+$Data = json_decode($inData);
+
+$bot = new BotClient(token: $token, rData: $Data);
+
+$bot->onMessage(null, function(BotClient $bot, Message $message) {
+    
+    $text = <<<'EOT'
+        Hi $Welcome to our amazing Botkaplus! 🎉
+        Here is a [Quote example](https://github.com/sinyor-ehsan/Rubika) that spans multiple lines,
+        and inside it you can see:
+        - **Bold text**
+        - __Italic text__
+        - --Underlined text--
+        - `Mono text`
+        - ~~Strikethrough~~
+        - ||Spoiler content||
+        $
+        Outside the quote, you can also highlight:
+
+        - **Important parts**  
+        - __Emphasized words__  
+        - Links like [Botkaplus](https://github.com/sinyor-ehsan/Rubika)  
+
+        You can even show `inline code` or code blocks:
+
+        ```<?php
+
+        require "vendor/autoload.php";
+        use Botkaplus\BotClient;
+        use Botkaplus\Filters;
+        use Botkaplus\Message;
+
+        $token = "token_bot";
+        $inData = file_get_contents('php://input');
+        $Data = json_decode($inData);
+
+        $bot = new BotClient($token, $Data);
+
+        $bot->onMessage(Filters::text("hello"), function(BotClient $bot, Message $message) {
+            $message->replyMessage("hello from Botkaplus!");
+            }
+        );
+        $bot->run();
+
+        ?>```
+
+        Enjoy exploring all the Markdown features! ✨
+        EOT;
+        
+    $message->replyMessage(text:$text);
+});
+
+$bot->run();
+
+?>
+```
+
+# ارسال متادیتا html
+?
+
 # ارسال اینلاین کیبورد
 ```php
 use Botkaplus\KeypadInline;
