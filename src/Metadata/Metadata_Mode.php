@@ -23,29 +23,6 @@ class Markdown {
         ];
     }
 
-    private static $pattern = '/
-        (?P<pre>```(?P<pre_c>[\s\S]*?)```)|
-        (?P<bold>\*\*(?P<bold_c>.*?)\*\*)|
-        (?P<mono>`(?P<mono_c>.*?)`)|
-        (?P<italic>__(?P<italic_c>.*?)__)|
-        (?P<underline>--(?P<underline_c>.*?)--)|
-        (?P<link>\[(?P<link_text>.*?)\]\((?P<link_url>\S+?)\))|
-        (?P<quote>\$(?P<quote_c>[\s\S]*?)\$)|
-        (?P<strike>~~(?P<strike_c>.*?)~~)|
-        (?P<spoiler>\|\|(?P<spoiler_c>.*?)\|\|)
-    /x';
-
-    private static $typeMap = [
-        "pre" => "Pre",
-        "bold" => "Bold",
-        "mono" => "Mono",
-        "italic" => "Italic",
-        "underline" => "Underline",
-        "strike" => "Strike",
-        "spoiler" => "Spoiler",
-        "quote" => "Quote",
-        "link" => "Link",
-    ];
 
     private function javaLikeLength($text) {
         return strlen(mb_convert_encoding($text, 'UTF-16BE')) / 2;
@@ -242,13 +219,6 @@ class Markdown {
         }, $metaDataParts);
 
         $finalText = trim($currentText);
-        $mt = $this->transcribe($finalText);
-        echo 'mt: ' . json_encode($mt) . PHP_EOL;
-        $finalText = $mt['text'];
-
-        if (isset($mt['meta_data_parts']) && is_array($mt['meta_data_parts'])) {
-            $metaDataParts = array_merge($metaDataParts, $mt['meta_data_parts']);
-        }
 
         $result = ['text' => $finalText];
 
