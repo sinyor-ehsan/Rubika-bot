@@ -2,7 +2,6 @@
 
 namespace Botkaplus;
 
-require_once 'Metadata_Mode.php';
 use Botkaplus\Markdown;
 
 class TrackParsed {
@@ -63,9 +62,9 @@ class TrackParsed {
         return trim($src);
     }
 
-    public function transcribe($src, $mode = "MARKDOWN") {
+    public function transcribe($src, $mode = "MarkdownMode") {
         if ($mode === "HTML") {$src = $this->html2md($src);}
-        if ($mode === "MARKDOWN_MODE") {
+        if ($mode === "MarkdownMode") {
             $markdown = new Markdown();
             $src = $markdown->toMetadata($src);
             return $src;
@@ -140,7 +139,7 @@ class TrackParsed {
         return $result;
     }
 
-    public function parse($text, $mode = "MARKDOWN") {
+    public function parse($text, $mode = "MarkdownMode") {
         return $this->transcribe($text, $mode);
     }
 }
