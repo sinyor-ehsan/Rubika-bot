@@ -92,7 +92,7 @@ class Markdown {
                     }
 
                     // افزودن اطلاعات اضافی برای نوع Link
-                    elseif ($mdType === 'Link') {
+                    else if ($mdType === 'Link') {
                         $url = $matches[9][0] ?? '';
                         $label = $matches[8][0] ?? '';
 
@@ -100,10 +100,7 @@ class Markdown {
                         $mentionType = $mentionTypes[$url[0]] ?? 'hyperlink';
 
                         if ($mentionType === 'hyperlink') {
-                            $metaDataPart['link'] = [
-                                'type' => $mentionType,
-                                'hyperlink_data' => ['url' => $url]
-                            ];
+                            $metaDataPart["link_url"] = $url;
                         } else {
                             $metaDataPart['type'] = 'MentionText';
                             $metaDataPart['mention_text_object_guid'] = $url;
@@ -144,19 +141,16 @@ class Markdown {
 
         $finalText = trim($currentText);
 
-        $result = ['text' => $finalText];
-
         $metaDataParts = array_filter($metaDataParts, function($part) {
             if ($part['type'] === 'Link') {
-                return isset($part['link']['type']) &&
-                    $part['link']['type'] === 'hyperlink' &&
-                    isset($part['link']['hyperlink_data']['url']) &&
-                    !empty($part['link']['hyperlink_data']['url']);
+                return !empty($part['link_url']) || isset($part['link']['type']);
             }
             return true; // سایر انواع رو نگه دار
         });
 
         $metaDataParts = array_values($metaDataParts);
+
+        $result = ['text' => $finalText];
 
         if ($metaDataParts) {
             $result['metadata'] = ['meta_data_parts' => $metaDataParts];
