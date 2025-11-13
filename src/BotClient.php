@@ -8,7 +8,7 @@ require_once 'Keypad/KeypadChat.php';
 require_once 'Keypad/KeypadInline.php';
 require_once 'Metadata/Metadata.php';
 require_once 'Metadata/Utils.php';
-require_once 'Metadata/Markdown_Mode.php';
+require_once 'Metadata/Metadata_Mode.php';
 
 use Botkaplus\Message;
 use Exception;
@@ -53,7 +53,7 @@ class BotClient {
     private $handlers = [];
 
     // سازنده کلاس
-    public function __construct($token, $rData = null, $timeout = 30, $max_retries = 3, $parse_mode = "MARKDOWN", $url_webhook = null) {
+    public function __construct($token, $rData = null, $timeout = 30, $max_retries = 3, $parse_mode = "MarkdownMode", $url_webhook = null) {
         $this->token = $token;
         $this->rData = $rData;
         $this->timeout = $timeout;
@@ -727,8 +727,5 @@ class BotClient {
     }
 
 }
-
-
-
 
 
