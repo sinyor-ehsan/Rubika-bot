@@ -1,7 +1,7 @@
 {
     "name": "sinyor-ehsan/botkaplus",
     "description": "Botkaplus Library for rubika bots",
-    "version": "0.0.8",
+    "version": "0.0.9",
     "type": "library",
     "keywords": ["rubika", "bot", "api", "php", "botkaplus", "rubikabot"],
     "homepage": "https://github.com/sinyor-ehsan/Botkaplus",
@@ -26,6 +26,7 @@
     },
     "minimum-stability": "stable"
 }
+
 
 
 
