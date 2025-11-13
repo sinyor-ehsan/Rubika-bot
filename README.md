@@ -228,7 +228,7 @@ $bot = new BotClient(token: $token, rData: $Data);
 $utils = new Utils();
 
 $bot->onMessage(null, function(BotClient $bot, Message $message) use ($utils) {
-    $message->replyMessage($utils->Bold("hello") . " " . $utils->Italic("from " . " ") . " " . $utils->Hyperlink("Botkaplus!", "https://github.com/sinyor-ehsan/Rubika") . " " . $utils->Quote("quote" . " " . $utils->Mono("mono")));
+    $message->replyMessage($utils->Bold("hello $utils->Italic("from ")") . $utils->Hyperlink("Botkaplus!", "https://github.com/sinyor-ehsan/Rubika") . " " . $utils->Quote("quote " . $utils->Mono("mono")));
 });
 
 $bot->run();
