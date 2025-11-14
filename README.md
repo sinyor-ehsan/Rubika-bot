@@ -96,9 +96,9 @@ $bot->onMessage(null, function(BotClient $bot, Message $message) {
         Hi $Welcome to our amazing Botkaplus! 🎉
         Here is a [Quote example](https://github.com/sinyor-ehsan/Rubika) that spans multiple lines,
         and inside it you can see:
-        - **Bold text**
-        - __Italic text__
-        - --Underlined text--
+        - __**Bold text**__
+        - ~~__Italic text__~~
+        - __--Underlined text--__
         - `Mono text`
         - ~~Strikethrough~~
         - ||Spoiler content||
