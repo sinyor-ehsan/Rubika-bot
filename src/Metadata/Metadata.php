@@ -13,7 +13,7 @@ class TrackParsed {
         (?P<italic>__(?P<italic_c>.*?)__)|
         (?P<underline>--(?P<underline_c>.*?)--)|
         (?P<link>\[(?P<link_text>.*?)\]\((?P<link_url>\S+?)\))|
-        (?P<quote>\$(?P<quote_c>[\s\S]*?)\$)|
+        (?P<quote>\#\#(?P<quote_c>[\s\S]*?)\#\#)|
         (?P<strike>~~(?P<strike_c>.*?)~~)|
         (?P<spoiler>\|\|(?P<spoiler_c>.*?)\|\|)
     /x';
@@ -63,88 +63,16 @@ class TrackParsed {
         return trim($src);
     }
 
-    public function markdown_quote($src, $mode = "Markdown") {
-        $payloadParts = [];
-
-        // 🔹 مرحله اول: پاک‌سازی کل متن از همه نشانه‌گذاری‌ها بجز $
-        $pattern_strip = '/\|\|{1,}|~~{1,}|--{1,}|__{1,}|`|[\*]{2,}|```/';
-        $cleanedSrc = preg_replace($pattern_strip, '', $src);
-        $cleanedSrc = preg_replace('/\s+/', ' ', trim($cleanedSrc));
-        $cleanedSrc = preg_replace('/\[(.*?)\]\((.*?)\)/', '$1', $cleanedSrc);
-
-        $normalizedText = $cleanedSrc;
-        $byteOffset = 0;
-        $charOffset = 0;
-
-        preg_match_all(self::$pattern, $cleanedSrc, $matches, PREG_OFFSET_CAPTURE | PREG_SET_ORDER);
-
-        foreach ($matches as $m) {
-            $whole = $m[0][0];
-            $start = $m[0][1];
-            $end = $start + strlen($whole);
-
-            $adjFrom = self::utf16Len(substr($cleanedSrc, 0, $start)) - $byteOffset;
-            $adjCharFrom = $start - $charOffset;
-
-            if (empty($m["quote"][0])) continue;
-            $gname = "quote";
-
-            $inner = $m["quote_c"][0] ?? "";
-            if ($inner === "") continue;
-
-            // بازگشتی روی متن پاک‌شده
-            $innerMeta = $this->markdown_quote($inner, "MARKDOWN");
-            $inner = $innerMeta["text"];
-            if (!empty($innerMeta["metadata"]["meta_data_parts"])) {
-                foreach ($innerMeta["metadata"]["meta_data_parts"] as $part) {
-                    $part["from_index"] += $adjFrom;
-                    $payloadParts[] = $part;
-                }
-            }
-
-            // محاسبه طول نهایی
-            $length_text = mb_strlen($inner);
-
-            $part = [
-                "type" => self::$typeMap[$gname] ?? "Unknown",
-                "from_index" => $adjFrom,
-                "length" => $length_text,
-            ];
-            $payloadParts[] = $part;
-
-            $normalizedText = substr($normalizedText, 0, $adjCharFrom) . $inner . substr($normalizedText, $end - $charOffset);
-            $byteOffset += self::utf16Len($whole) - self::utf16Len($inner);
-            $charOffset += strlen($whole) - strlen($inner);
-        }
-
-        $normalizedText = preg_replace('/\$/', '', $src);
-
-        $result = ["text" => trim($normalizedText)];
-        if (!empty($payloadParts)) {
-            $result["metadata"] = ["meta_data_parts" => $payloadParts];
-        }
-
-        return $result;
-    }
-
     public function transcribe($src, $mode = "MarkdownMode") {
         if ($mode === "HTML") {$src = $this->html2md($src);}
+
         if ($mode === "MarkdownMode") {
-            $markdown_q = $this->markdown_quote($src, "Markdown");
-            $src = $markdown_q['text'];
             $markdown = new Markdown();
-            $md = $markdown->toMetadata($src);
-
-            if (!empty($markdown_q['metadata']['meta_data_parts'])) {
-                $md['metadata']['meta_data_parts'] = array_merge(
-                    $markdown_q['metadata']['meta_data_parts'],
-                    $md['metadata']['meta_data_parts'] ?? []
-                );
-            }
-
-            return $md;
-
+            $result = $markdown->markdown_mode($src);
+            return $result;
+            
         }
+    
         $payloadParts = [];
         $normalizedText = $src;
         $byteOffset = 0;
