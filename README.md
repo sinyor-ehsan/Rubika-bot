@@ -321,7 +321,7 @@ Filters::not(...)
 $bot->setCommands([["command" => "start", "description" => "شروع ربات"], ["command" => "help", "description" => "راهنمای ربات"]]);
 ```
 
-#ارسال نظرسنجی
+# ارسال نظرسنجی
 ```php
 // chat_id شناسه چت مقصد
 // question متن سوال
